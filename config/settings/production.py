@@ -6,7 +6,6 @@ import google.auth
 from google.cloud import secretmanager
 from google.oauth2 import service_account
 
-
 GS_CREDENTIALS = service_account.Credentials.from_service_account_file(
     BASE_DIR / 'credentials.json'
 )
@@ -20,4 +19,3 @@ MEDIA_URL = f'https://storage.googleapis.com/{GS_MEDIA_BUCKET_NAME}/'
 # GS_DEFAULT_ACL = 'publicRead'
 # GS_QUERYSTRING_AUTH = False
 # GS_DEFAULT_ACL = None
-
