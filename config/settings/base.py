@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-
+import redis
 import environ
 
 #
@@ -74,7 +74,7 @@ DJANGO_APPS = [
     'rest_framework.authtoken',
 ]
 THIRD_PARTY_APPS = [
-    # "django_celery_beat",
+    "django_celery_beat",
 ]
 
 LOCAL_APPS = [
@@ -224,27 +224,79 @@ MANAGERS = ADMINS
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s "
-                      "%(process)d %(thread)d %(message)s"
-        },
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
         'normal': {
             'format': '[%(levelname)s] %(asctime)s | %(name)s:%(lineno)d | %(message)s'
         },
     },
-    "handlers": {
-        "console": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "normal",
-        }
-    },
-    "root": {"level": "DEBUG", "handlers": ["console"]},
-}
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',  # Default logs to stderr
+            'formatter': 'normal',  # use the above "normal" formatter
+            'level': 'INFO',  # logging level
+        },
+        'django.server': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'normal',
+        },
+        'debug': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'DEBUG',
+        },
+        'info': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'info.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'INFO',
+        },
+        'error': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'error.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'ERROR',
+        },
+        'res': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'response.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'INFO',
+        },
 
+    },
+    'loggers': {
+        '': {  # means "root logger"
+            'handlers': ['error', 'debug', 'console'],  # use the above "console" handler
+            'level': 'DEBUG',  # logging level
+        },
+        'django.server': {
+            'handlers': ['console', 'debug'],
+            'level': 'DEBUG',
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',  # change debug level as appropiate
+            'propagate': False,
+        },
+        'middleware.log': {
+            'handlers': ['console', 'res'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 # Your stuff...
 # ------------------------------------------------------------------------------
 
@@ -283,3 +335,61 @@ TELEGRAM_BOT_TOKEN = env.str('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHANNEL_ID = env.str('TELEGRAM_CHANNEL_ID', '')
 
 BOOTSTRAP_TOKEN = env.str('BOOTSTRAP_TOKEN', '')
+
+# ---- Redis ----
+
+REDIS_HOST = env.str("REDIS_HOST")
+REDIS_PORT = env.int("REDIS_PORT")
+REDIS_PASSWORD = env.str("REDIS_PASSWORD")
+redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD,decode_responses=True)
+
+# ---- CELERY v4.4.6 -----
+
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
+# export CELERY_BROKER_URL="${REDIS_URL}"
+# CELERY_BROKER_URL = os.environ.get("REDIS_URL")
+# CELERY_BROKER_URL = 'amqp://guest:guest@localhost'
+CELERY_BROKER_URL = 'amqp://admin:112e76122ffaec98209aacf6@localhost:5672//rss'
+# CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
+
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
+# CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
+# https://docs.celeryproject.org/en/stable/django/first-steps-with-django.html#django-celery-results-using-the-django-orm-cache-as-a-result-backend
+# CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'rpc://'
+
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-accept_content
+CELERY_ACCEPT_CONTENT = ["json"]
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-task_serializer
+CELERY_TASK_SERIALIZER = "json"
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_serializer
+CELERY_RESULT_SERIALIZER = "json"
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#task-time-limit
+# CELERY_TASK_TIME_LIMIT = 10 * 60
+CELERYD_TIME_LIMIT = 10 * 60
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#task-soft-time-limit
+# CELERY_TASK_SOFT_TIME_LIMIT = 300
+CELERYD_SOFT_TIME_LIMIT = 300
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#beat-scheduler
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# 防治死锁
+# CELERYD_FORCE_EXECV = True
+
+# celery 的启动工作数量设置
+# CELERY_WORKER_CONCURRENCY = 20
+
+# 任务预取功能，就是每个工作的进程／线程在获取任务的时候，会尽量多拿 n 个，以保证获取的通讯成本可以压缩。
+# CELERYD_PREFETCH_MULTIPLIER = 20
+
+# CELERY_ACKS_LATE=''
+
+# 每個worker執行了多少任務就會銷燬，防止記憶體洩露，預設是無限的
+# CELERYD_MAX_TASKS_PER_CHILD = 40
+
+# 是否存儲任務返回值（邏輯刪除）。如果您仍然想存儲錯誤，只是不成功返回值，則可以設置
+# CELERY_IGNORE_RESULT = True
+
+# 任务结果的时效时间，默认一天
+# CELERY_TASK_RESULT_EXPIRES = 0
+# CELERY_RESULT_EXPIRES = 0

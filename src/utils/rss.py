@@ -14,7 +14,8 @@ from imgurpython import ImgurClient
 # import telegram
 # from typing import List, Dict
 from . import watermark
-
+from config.settings.base import redis
+import json
 logger = logging.getLogger(__name__)
 
 
@@ -72,7 +73,7 @@ class Feed:
 
     def _crawl(self):
         feed = feedparser.parse(self.source.url)
-        logger.info(feed)
+        # logger.debug(feed)
 
         # 判斷網址如果失效, 不返回資料
         post = feed.entries
@@ -154,12 +155,13 @@ class News:
         for data in self.data:
             name = self.md5(f'{data["name"]}{data["url"]}')
             data['md5'] = name
+            data['source_name'] = self.source.name
 
-            # _data = json.dumps(data, indent=4, sort_keys=True, default=str)
+            _data = json.dumps(data, indent=4, sort_keys=True, default=str)
             self.result.append(data)
 
-            # if not self.redis.hget('news', name):
-            # self.redis.hset('news', name, _data)
-            # self.redis.hset('push', name, _data)
+            # 先檢查是否入庫, 入庫會存md5到db的key, 先比對在儲存到cache
+            if not redis.sismember('db', name):
+                redis.hset('news', name, _data)
 
         return self.result_data
