@@ -93,10 +93,10 @@ class NewsViewSet(ModelViewSet):
             if serializer.is_valid():
                 obj = serializer.save()
 
-                tag_objs = [models.Tag.objects.get_or_create(name=i)[1] for i in tag]
-                obj.tag.set(tag_objs)
+                tag_id_list = [models.Tag.objects.get_or_create(name=i)[1].id for i in tag]
+                obj.tag.set(models.Tag.objects.filter(id__in=tag_id_list))
             else:
-                logger.error(f'news保存報錯, {serializer.errors}')
+                logger.error(f'news保存報錯, {serializer.errors} {news_data}')
 
             redis.hdel('news', md5)
         return Response('ok')
