@@ -129,6 +129,7 @@ class NewsViewSet(ModelViewSet):
         # from config.settings.base import STATIC_DIR
 
         name = self.request.data.get('name')
+        debug = self.request.data.get('debug',False)
         if name:
             sourece_objs = models.Source.objects.filter(name=name,enable=True)
         else:
@@ -153,7 +154,7 @@ class NewsViewSet(ModelViewSet):
                 source_obj.save()
 
             new = News(source)
-            new.run(debug=True)
+            new.run(debug=debug)
             # new.run()
             # data_list.extend(new.result)
 
