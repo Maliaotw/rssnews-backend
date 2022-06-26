@@ -16,6 +16,9 @@ from imgurpython import ImgurClient
 from . import watermark
 from config.settings.base import redis
 import json
+
+from ..feedparser.parse import parse
+
 logger = logging.getLogger(__name__)
 
 
@@ -72,7 +75,7 @@ class Feed:
         self.news_list = []
 
     def _crawl(self):
-        feed = feedparser.parse(self.source.url)
+        feed = parse(self.source.url)
         # logger.debug(feed)
 
         # 判斷網址如果失效, 不返回資料
@@ -99,24 +102,26 @@ class Feed:
                 thumbnail = thumbnail_obj[0][0]
             else:
                 thumbnail = self.source.thumbnail
-
-            if post.published_parsed:
-                published_parsed = time.strftime("%Y/%m/%d %H:%M:%S", post.published_parsed)
-            else:
-                published_parsed = parser.parse(post.published)
-
-            if post.updated_parsed:
-                updated_parsed = time.strftime("%Y/%m/%d %H:%M:%S", post.updated_parsed)
-            else:
-                updated_parsed = published_parsed
+            #
+            # if post.published_parsed:
+            #     published_parsed = time.strftime("%Y/%m/%d %H:%M:%S", post.published_parsed)
+            # else:
+            #     published_parsed = parser.parse(post.published)
+            #
+            # if post.updated_parsed:
+            #     updated_parsed = time.strftime("%Y/%m/%d %H:%M:%S", post.updated_parsed)
+            # else:
+            #     updated_parsed = published_parsed
 
             data = {
                 'source': self.source.id,
                 'name': post.get('title'),
                 'url': post.get('feedburner_origlink') if post.get('feedburner_origlink') else post.link,
                 # 'publish': post.get('published', ''),
-                'published_parsed': published_parsed,
-                'updated_parsed': updated_parsed,
+                # 'published_parsed': published_parsed,
+                # 'updated_parsed': updated_parsed,
+                'published_parsed': post.published_datetime,
+                'updated_parsed': post.updated_datetime,
                 'content': post.summary,
                 'tag': tag,
                 'thumbnail': thumbnail,
@@ -149,7 +154,7 @@ class News:
         h = m.hexdigest()
         return h
 
-    def run(self):
+    def run(self, debug=False):
         self.data = self.get_crawl()
         # print(self.data)
         for data in self.data:
@@ -161,7 +166,8 @@ class News:
             self.result.append(data)
 
             # 先檢查是否入庫, 入庫會存md5到db的key, 先比對在儲存到cache
-            if not redis.sismember('db', name):
+            # redis.srem('db', name)
+            if debug or not redis.sismember('db', name):
                 redis.hset('news', name, _data)
 
         return self.result_data

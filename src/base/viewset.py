@@ -50,4 +50,11 @@ class GetSerializerClassMixin:
 
 
 class ModelViewSet(GetPermissionClassMix, GetSerializerClassMixin, ModelViewSet):
-    pass
+
+    def paginate_queryset(self, queryset):
+        """
+        Return a single page of results, or `None` if pagination is disabled.
+        """
+        if self.paginator is None:
+            return None
+        return self.paginator.paginate_queryset(queryset, self.request, view=self)

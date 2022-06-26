@@ -1,7 +1,8 @@
 # from celery import shared_task, Task, subtask
 import logging
 
-from celery import shared_task
+# from celery import shared_task
+from config.celery_app import app
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
@@ -10,12 +11,12 @@ from app.views.news import NewsViewSet
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@app.task
 def add(x, y):
     return str(x + y)
 
 
-@shared_task
+@app.task
 def crawl_news():
     """爬取RSS
 
@@ -26,7 +27,7 @@ def crawl_news():
     data = {}
 
     factory = APIRequestFactory()
-    request = factory.post(path, data=None,content_type='text/plain')  # WSGIRequest
+    request = factory.post(path, data=None, content_type='text/plain')  # WSGIRequest
     request = Request(request)  # rest_framework.request.Request
 
     # Add the view call to get response object
@@ -36,7 +37,8 @@ def crawl_news():
 
     return response.data
 
-@shared_task
+
+@app.task
 def sync_news():
     """將新聞入庫到DB
 
@@ -47,7 +49,7 @@ def sync_news():
     data = {}
 
     factory = APIRequestFactory()
-    request = factory.post(path, data=None,content_type='text/plain')  # WSGIRequest
+    request = factory.post(path, data=None, content_type='text/plain')  # WSGIRequest
     request = Request(request)  # rest_framework.request.Request
 
     # Add the view call to get response object
@@ -58,7 +60,7 @@ def sync_news():
     return response.data
 
 
-@shared_task
+@app.task
 def send_news():
     """寄送TG或電郵
 
@@ -69,7 +71,7 @@ def send_news():
     data = {}
 
     factory = APIRequestFactory()
-    request = factory.post(path, data=None,content_type='text/plain')  # WSGIRequest
+    request = factory.post(path, data=None, content_type='text/plain')  # WSGIRequest
     request = Request(request)  # rest_framework.request.Request
 
     # Add the view call to get response object
@@ -78,5 +80,3 @@ def send_news():
     response = viewset.push(request)
 
     return response.data
-
-

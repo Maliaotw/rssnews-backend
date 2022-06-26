@@ -1,5 +1,5 @@
 from django_filters import FilterSet, filters
-from .models import News
+from .models import News, Source
 
 
 class NewsListFilter(FilterSet):
@@ -13,3 +13,12 @@ class NewsListFilter(FilterSet):
 
 
 
+class SourceListFilter(FilterSet):
+
+    name = filters.CharFilter(lookup_expr='contains')
+    category = filters.CharFilter(field_name='category__id')
+    enable = filters.CharFilter()
+
+    class Meta:
+        model = Source
+        fields = ['name', 'category', 'enable']

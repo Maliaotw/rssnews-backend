@@ -22,12 +22,15 @@ app.conf.timezone = 'Asia/Taipei'
 app.conf.task_soft_time_limit = 300
 app.conf.task_time_limit = 600
 app.conf.worker_max_tasks_per_child = 40
+app.conf.broker_heartbeat = 0
+app.conf.task_acks_late = True
 
 app.conf.broker_transport_options = {'visibility_timeout': 43200}
 
 app.conf.task_default_queue = 'rss'
 app.conf.task_queues = (
-    Queue('rss', Exchange('rss'), routing_key='default'),
+    Queue('rss'),
+    # Queue('rss', Exchange('rss'), routing_key='default'),
     # Queue('videos',  Exchange('media'),   routing_key='media.video'),
     # Queue('images',  Exchange('media'),   routing_key='media.image'),
 )

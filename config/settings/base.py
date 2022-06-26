@@ -458,29 +458,30 @@ BOOTSTRAP_TOKEN = env.str('BOOTSTRAP_TOKEN', '')
 REDIS_HOST = env.str("REDIS_HOST")
 REDIS_PORT = env.int("REDIS_PORT")
 REDIS_PASSWORD = env.str("REDIS_PASSWORD")
+REDIS_DB = 0
 redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
 
 # ---- CELERY v4.4.6 -----
 
-RABBITMQ_HOST = env.str("RABBITMQ_HOST")
-RABBITMQ_PORT = env.int("RABBITMQ_PORT")
-RABBITMQ_USER = env.str("RABBITMQ_USER")
-RABBITMQ_PASSWORD = env.str("RABBITMQ_PASSWORD")
-RABBITMQ_VHOST = env.str("RABBITMQ_VHOST")
+
 
 
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
-# export CELERY_BROKER_URL="${REDIS_URL}"
-# CELERY_BROKER_URL = os.environ.get("REDIS_URL")
-# CELERY_BROKER_URL = 'amqp://guest:guest@localhost'
-CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}'
-# CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
-
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
-# CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
-# https://docs.celeryproject.org/en/stable/django/first-steps-with-django.html#django-celery-results-using-the-django-orm-cache-as-a-result-backend
-# CELERY_RESULT_BACKEND = 'django-db'
-CELERY_RESULT_BACKEND = 'rpc://'
+
+
+# Redis
+CELERY_BROKER_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+CELERY_RESULT_BACKEND = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1'
+
+# RabbitMQ
+# RABBITMQ_HOST = env.str("RABBITMQ_HOST")
+# RABBITMQ_PORT = env.int("RABBITMQ_PORT")
+# RABBITMQ_USER = env.str("RABBITMQ_USER")
+# RABBITMQ_PASSWORD = env.str("RABBITMQ_PASSWORD")
+# RABBITMQ_VHOST = env.str("RABBITMQ_VHOST")
+# CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}'
+# CELERY_RESULT_BACKEND = 'rpc://'
 
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-accept_content
 CELERY_ACCEPT_CONTENT = ["json"]

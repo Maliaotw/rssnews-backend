@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from app import models
 from app import serializers
 from app.filters import NewsListFilter
-from authentication.permissions import IsAppUser, IsValidUser
+from authentication.permissions import IsAppUser, IsValidUser,AllowAny
 from src.base.viewset import ModelViewSet
 from src.telegram.bot import Bot
 from dateutil.parser import parse
@@ -25,9 +25,14 @@ logger = logging.getLogger(__name__)
 class NewsViewSet(ModelViewSet):
     model_class = models.News
     queryset = model_class.objects.all()
-    pagination_class = LimitOffsetPagination
+    # pagination_class = LimitOffsetPagination
     permission_classes = (IsValidUser | IsAppUser,)
     filterset_class = NewsListFilter
+
+    permission_classes_mapping = {
+        'list': (AllowAny,),
+        'selects': (AllowAny,),
+    }
 
     serializer_action_classes = {
         'list': serializers.NewsListSerializer,
@@ -75,13 +80,14 @@ class NewsViewSet(ModelViewSet):
         for md5, raw_data in data.items():
             news_data = json.loads(raw_data)
             news_data['id'] = md5
+            source_name = news_data['source_name']
             tag = news_data.pop('tag')
 
             # if news_data.get('source_id'):
             #     news_data['source'] = news_data.pop('source_id')
 
-            news_data['published_parsed'] = parse(news_data['published_parsed'])
-            news_data['updated_parsed'] = parse(news_data['updated_parsed'])
+            # news_data['published_parsed'] = parse(news_data['published_parsed'])
+            # news_data['updated_parsed'] = parse(news_data['updated_parsed'])
 
             if self.queryset.filter(id=md5):
                 # 數據已存在, 將md5加到smenber
@@ -93,10 +99,10 @@ class NewsViewSet(ModelViewSet):
             if serializer.is_valid():
                 obj = serializer.save()
 
-                tag_id_list = [models.Tag.objects.get_or_create(name=i)[1].id for i in tag]
+                tag_id_list = [models.Tag.objects.get_or_create(name=i)[0].id for i in tag]
                 obj.tag.set(models.Tag.objects.filter(id__in=tag_id_list))
             else:
-                logger.error(f'news保存報錯, {serializer.errors} {news_data}')
+                logger.error(f'news保存報錯-{source_name}, {serializer.errors} {news_data}')
 
             redis.hdel('news', md5)
         return Response('ok')
@@ -124,9 +130,9 @@ class NewsViewSet(ModelViewSet):
 
         name = self.request.data.get('name')
         if name:
-            sourece_objs = models.Source.objects.filter(name=name)
+            sourece_objs = models.Source.objects.filter(name=name,enable=True)
         else:
-            sourece_objs = models.Source.objects.all()
+            sourece_objs = models.Source.objects.filter(enable=True)
 
         # data_list = []
         logger.info(f'sourece_objs {sourece_objs}')
@@ -140,14 +146,14 @@ class NewsViewSet(ModelViewSet):
                 category=source_obj.category_id,
                 remarks=source_obj.remarks,
                 timezone=source_obj.timezone,
-                status=source_obj.status
+                status=True
             )
             if not source_obj.thumbnail:
                 source_obj.thumbnail = source.source_thumbnail
                 source_obj.save()
 
             new = News(source)
-            new.run()
+            new.run(debug=True)
             # new.run()
             # data_list.extend(new.result)
 

@@ -2,6 +2,7 @@
 
 import time
 from rest_framework import permissions
+from rest_framework.permissions import AllowAny
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.conf import settings
 
