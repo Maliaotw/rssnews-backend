@@ -6,7 +6,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-
+import redis
 import environ
 
 #
@@ -32,7 +32,15 @@ if os.path.isfile(env_file):
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
-DEBUG = env.bool("DJANGO_DEBUG", False)
+DEBUG = env.bool("DEBUG", False)
+
+# https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+
+# https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+
+
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
@@ -74,7 +82,7 @@ DJANGO_APPS = [
     'rest_framework.authtoken',
 ]
 THIRD_PARTY_APPS = [
-    # "django_celery_beat",
+    "django_celery_beat",
 ]
 
 LOCAL_APPS = [
@@ -224,27 +232,79 @@ MANAGERS = ADMINS
 # See https://docs.djangoproject.com/en/dev/topics/logging for
 # more details on how to customize your logging configuration.
 LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(levelname)s %(asctime)s %(module)s "
-                      "%(process)d %(thread)d %(message)s"
-        },
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
         'normal': {
             'format': '[%(levelname)s] %(asctime)s | %(name)s:%(lineno)d | %(message)s'
         },
     },
-    "handlers": {
-        "console": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "formatter": "normal",
-        }
-    },
-    "root": {"level": "DEBUG", "handlers": ["console"]},
-}
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',  # Default logs to stderr
+            'formatter': 'normal',  # use the above "normal" formatter
+            'level': 'INFO',  # logging level
+        },
+        'django.server': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'normal',
+        },
+        'debug': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'debug.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'DEBUG',
+        },
+        'info': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'info.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'INFO',
+        },
+        'error': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'error.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'ERROR',
+        },
+        'res': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'formatter': 'normal',
+            'filename': os.path.join(BASE_DIR, 'logs', 'response.log'),
+            'maxBytes': 1024 * 1024 * 50,  # 50 MB
+            # 'backupCount': 10,
+            'level': 'INFO',
+        },
 
+    },
+    'loggers': {
+        '': {  # means "root logger"
+            'handlers': ['error', 'debug', 'console'],  # use the above "console" handler
+            'level': 'DEBUG',  # logging level
+        },
+        'django.server': {
+            'handlers': ['console', 'debug'],
+            'level': 'DEBUG',
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'DEBUG',  # change debug level as appropiate
+            'propagate': False,
+        },
+        'middleware.log': {
+            'handlers': ['console', 'res'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 # Your stuff...
 # ------------------------------------------------------------------------------
 
@@ -264,8 +324,117 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-    ]
+    ],
+
+    # 分頁
+    'DEFAULT_PAGINATION_CLASS': 'src.base.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
 }
+
+
+#
+# DEFAULTS = {
+#     # Base API policies
+#     'DEFAULT_RENDERER_CLASSES': [
+#         'rest_framework.renderers.JSONRenderer',
+#         'rest_framework.renderers.BrowsableAPIRenderer',
+#     ],
+#     'DEFAULT_PARSER_CLASSES': [
+#         'rest_framework.parsers.JSONParser',
+#         'rest_framework.parsers.FormParser',
+#         'rest_framework.parsers.MultiPartParser'
+#     ],
+#     'DEFAULT_AUTHENTICATION_CLASSES': [
+#         'rest_framework.authentication.SessionAuthentication',
+#         'rest_framework.authentication.BasicAuthentication'
+#     ],
+#     'DEFAULT_PERMISSION_CLASSES': [
+#         'rest_framework.permissions.AllowAny',
+#     ],
+#     'DEFAULT_THROTTLE_CLASSES': [],
+#     'DEFAULT_CONTENT_NEGOTIATION_CLASS': 'rest_framework.negotiation.DefaultContentNegotiation',
+#     'DEFAULT_METADATA_CLASS': 'rest_framework.metadata.SimpleMetadata',
+#     'DEFAULT_VERSIONING_CLASS': None,
+#
+#     # Generic view behavior
+#     'DEFAULT_PAGINATION_CLASS': None,
+#     'DEFAULT_FILTER_BACKENDS': [],
+#
+#     # Schema
+#     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.openapi.AutoSchema',
+#
+#     # Throttling
+#     'DEFAULT_THROTTLE_RATES': {
+#         'user': None,
+#         'anon': None,
+#     },
+#     'NUM_PROXIES': None,
+#
+#     # Pagination
+#     'PAGE_SIZE': None,
+#
+#     # Filtering
+#     'SEARCH_PARAM': 'search',
+#     'ORDERING_PARAM': 'ordering',
+#
+#     # Versioning
+#     'DEFAULT_VERSION': None,
+#     'ALLOWED_VERSIONS': None,
+#     'VERSION_PARAM': 'version',
+#
+#     # Authentication
+#     'UNAUTHENTICATED_USER': 'django.contrib.auth.models.AnonymousUser',
+#     'UNAUTHENTICATED_TOKEN': None,
+#
+#     # View configuration
+#     'VIEW_NAME_FUNCTION': 'rest_framework.views.get_view_name',
+#     'VIEW_DESCRIPTION_FUNCTION': 'rest_framework.views.get_view_description',
+#
+#     # Exception handling
+#     'EXCEPTION_HANDLER': 'rest_framework.views.exception_handler',
+#     'NON_FIELD_ERRORS_KEY': 'non_field_errors',
+#
+#     # Testing
+#     'TEST_REQUEST_RENDERER_CLASSES': [
+#         'rest_framework.renderers.MultiPartRenderer',
+#         'rest_framework.renderers.JSONRenderer'
+#     ],
+#     'TEST_REQUEST_DEFAULT_FORMAT': 'multipart',
+#
+#     # Hyperlink settings
+#     'URL_FORMAT_OVERRIDE': 'format',
+#     'FORMAT_SUFFIX_KWARG': 'format',
+#     'URL_FIELD_NAME': 'url',
+#
+#     # Input and output formats
+#     'DATE_FORMAT': ISO_8601,
+#     'DATE_INPUT_FORMATS': [ISO_8601],
+#
+#     'DATETIME_FORMAT': ISO_8601,
+#     'DATETIME_INPUT_FORMATS': [ISO_8601],
+#
+#     'TIME_FORMAT': ISO_8601,
+#     'TIME_INPUT_FORMATS': [ISO_8601],
+#
+#     # Encoding
+#     'UNICODE_JSON': True,
+#     'COMPACT_JSON': True,
+#     'STRICT_JSON': True,
+#     'COERCE_DECIMAL_TO_STRING': True,
+#     'UPLOADED_FILES_USE_URL': True,
+#
+#     # Browseable API
+#     'HTML_SELECT_CUTOFF': 1000,
+#     'HTML_SELECT_CUTOFF_TEXT': "More than {count} items...",
+#
+#     # Schemas
+#     'SCHEMA_COERCE_PATH_PK': True,
+#     'SCHEMA_COERCE_METHOD_NAMES': {
+#         'retrieve': 'read',
+#         'destroy': 'delete'
+#     },
+# }
+
 
 EXPIRING_TOKEN_LIFESPAN = datetime.timedelta(days=1)
 # EXPIRING_TOKEN_LIFESPAN = datetime.timedelta(minutes=3)
@@ -283,3 +452,73 @@ TELEGRAM_BOT_TOKEN = env.str('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHANNEL_ID = env.str('TELEGRAM_CHANNEL_ID', '')
 
 BOOTSTRAP_TOKEN = env.str('BOOTSTRAP_TOKEN', '')
+
+# ---- Redis ----
+
+REDIS_HOST = env.str("REDIS_HOST")
+REDIS_PORT = env.int("REDIS_PORT")
+REDIS_PASSWORD = env.str("REDIS_PASSWORD")
+REDIS_DB = 0
+redis = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, password=REDIS_PASSWORD, decode_responses=True)
+
+# ---- CELERY v4.4.6 -----
+
+
+
+
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
+
+
+# Redis
+CELERY_BROKER_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+CELERY_RESULT_BACKEND = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1'
+
+# RabbitMQ
+# RABBITMQ_HOST = env.str("RABBITMQ_HOST")
+# RABBITMQ_PORT = env.int("RABBITMQ_PORT")
+# RABBITMQ_USER = env.str("RABBITMQ_USER")
+# RABBITMQ_PASSWORD = env.str("RABBITMQ_PASSWORD")
+# RABBITMQ_VHOST = env.str("RABBITMQ_VHOST")
+# CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}'
+# CELERY_RESULT_BACKEND = 'rpc://'
+
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-accept_content
+CELERY_ACCEPT_CONTENT = ["json"]
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-task_serializer
+CELERY_TASK_SERIALIZER = "json"
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_serializer
+CELERY_RESULT_SERIALIZER = "json"
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#task-time-limit
+# CELERY_TASK_TIME_LIMIT = 10 * 60
+# CELERYD_TIME_LIMIT = 10 * 60
+# CELERY_TIME_LIMIT = 10 * 60
+# CELERY_TASK_TIME_LIMIT = 10 * 60
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#task-soft-time-limit
+# CELERY_TASK_SOFT_TIME_LIMIT = 300
+# CELERYD_SOFT_TIME_LIMIT = 300
+# CELERY_SOFT_TIME_LIMIT = 300
+# CELERY_TASK_SOFT_TIME_LIMIT = 300
+# http://docs.celeryproject.org/en/latest/userguide/configuration.html#beat-scheduler
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# 防治死锁
+# CELERYD_FORCE_EXECV = True
+
+# celery 的启动工作数量设置
+# CELERY_WORKER_CONCURRENCY = 20
+
+# 任务预取功能，就是每个工作的进程／线程在获取任务的时候，会尽量多拿 n 个，以保证获取的通讯成本可以压缩。
+# CELERYD_PREFETCH_MULTIPLIER = 20
+
+# CELERY_ACKS_LATE=''
+
+# 每個worker執行了多少任務就會銷燬，防止記憶體洩露，預設是無限的
+# CELERYD_MAX_TASKS_PER_CHILD = 40
+
+# 是否存儲任務返回值（邏輯刪除）。如果您仍然想存儲錯誤，只是不成功返回值，則可以設置
+# CELERY_IGNORE_RESULT = True
+
+# 任务结果的时效时间，默认一天
+# CELERY_TASK_RESULT_EXPIRES = 0
+# CELERY_RESULT_EXPIRES = 0

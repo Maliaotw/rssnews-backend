@@ -4,8 +4,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
-
+from src.base.model import AbstractBaseModel
 
 # Create your models here.
 
@@ -46,62 +45,64 @@ class UserProfile(AbstractUser):
         return self.name
 
 
-class Category(models.Model):
+class Category(AbstractBaseModel):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True, editable=False)
     name = models.CharField(max_length=255)
-    code = models.CharField(max_length=255,blank=True,default='')
+    code = models.CharField(max_length=255, blank=True, default='')
     content = models.TextField(blank=True)
-    update_time = models.DateTimeField(auto_now=True)
-    create_time = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
 
 
-class Source(models.Model):
-    name = models.CharField(max_length=255)
-    url = models.URLField(unique=True)
-    timezone = models.IntegerField(default=0)
-    category = models.ForeignKey("Category", on_delete=models.CASCADE)
-    status = models.BooleanField(default=True)
-    remarks = models.CharField(max_length=255, blank=True)
-    thumbnail = models.URLField(blank=True,default='')
-    update_time = models.DateTimeField(auto_now=True)
-    create_time = models.DateTimeField(auto_now_add=True)
+class Source(AbstractBaseModel):
+    """RSS 來源表"""
+
+    choices = {
+        'enable': (
+            (0, '否'),
+            (1, '是')
+        )
+    }
+
+    name = models.CharField(max_length=255, verbose_name='來源名稱')
+    url = models.URLField(unique=True, verbose_name='URL')
+    timezone = models.IntegerField(default=0, verbose_name='時區差')
+    category = models.ForeignKey("Category", on_delete=models.CASCADE, verbose_name='分類')
+    enable = models.BooleanField(choices=choices['enable'], default=True, verbose_name='啟用狀態')
+    remarks = models.CharField(max_length=255, blank=True, verbose_name='備註')
+    thumbnail = models.URLField(blank=True, default='', verbose_name='縮圖網址')
+
+
 
     class Meta:
-        permissions = (
-            ("can_change", "Can change"),
-            ("can_delete", "Can delete"),
-        )
+        permissions = ()
 
     def __str__(self):
         return self.name
 
 
-class Tag(models.Model):
+class Tag(AbstractBaseModel):
+    """標籤表"""
     name = models.CharField(max_length=255)
-    update_time = models.DateTimeField(auto_now=True)
-    create_time = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
 
 
-class Telegram(models.Model):
+class Telegram(AbstractBaseModel):
     """TG"""
     token = models.CharField(max_length=255)
     chat_id = models.CharField(max_length=255, verbose_name="chat_id", blank=True)
     status = models.BooleanField(default=False, verbose_name="綁定狀態")
     username = models.CharField(max_length=255, verbose_name="TG暱稱", blank=True)
-    update_time = models.DateTimeField(auto_now=True)
-    create_time = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return "%s %s" % (self.chat_id, self.token)
 
 
-class News(models.Model):
+class News(AbstractBaseModel):
+    """新聞表"""
     id = models.CharField(max_length=32, primary_key=True)
     source = models.ForeignKey("Source", on_delete=models.DO_NOTHING)
     name = models.CharField(max_length=255)
@@ -109,13 +110,11 @@ class News(models.Model):
     content = models.TextField()
     published_parsed = models.DateTimeField()
     updated_parsed = models.DateTimeField()
-    update_time = models.DateTimeField(auto_now=True)
-    create_time = models.DateTimeField(auto_now_add=True)
     tag = models.ManyToManyField("Tag", blank=True, verbose_name="標籤")
     reply_count = models.IntegerField(default=0)
     favor_count = models.IntegerField(default=0)
     views_count = models.IntegerField(default=0)
-    thumbnail = models.URLField(verbose_name="縮圖網址")
+    thumbnail = models.URLField(max_length=512, verbose_name="縮圖網址")
     push_status = models.BooleanField(default=False, verbose_name='發布狀態')
 
     class Meta:
@@ -125,12 +124,11 @@ class News(models.Model):
         return self.name
 
 
-class Reply(models.Model):
+class Reply(AbstractBaseModel):
     content = models.TextField()
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     new = models.ForeignKey('News', on_delete=models.CASCADE)
-    update_time = models.DateTimeField(auto_now=True)
-    create_time = models.DateTimeField(auto_now_add=True)
+
 
     def __str__(self):
         return self.content

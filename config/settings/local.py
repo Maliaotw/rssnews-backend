@@ -70,13 +70,13 @@ CACHES = {
 # https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
 INSTALLED_APPS += ["django_extensions"]  # noqa F405
 
-CELERY_TASK_EAGER_PROPAGATES = True
-
-
-app.conf.beat_schedule = {
-
-}
-
+# CELERY_TASK_EAGER_PROPAGATES = True
+#
+#
+# app.conf.beat_schedule = {
+#
+# }
+#
 
 
 

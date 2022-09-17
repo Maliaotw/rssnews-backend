@@ -13,10 +13,11 @@ from rest_framework.response import Response
 from app import models
 from app import serializers
 from app.filters import NewsListFilter
-from authentication.permissions import IsAppUser, IsValidUser
+from authentication.permissions import IsAppUser, IsValidUser,AllowAny
 from src.base.viewset import ModelViewSet
 from src.telegram.bot import Bot
 from dateutil.parser import parse
+from config.settings.base import redis
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,14 @@ logger = logging.getLogger(__name__)
 class NewsViewSet(ModelViewSet):
     model_class = models.News
     queryset = model_class.objects.all()
-    pagination_class = LimitOffsetPagination
+    # pagination_class = LimitOffsetPagination
     permission_classes = (IsValidUser | IsAppUser,)
     filterset_class = NewsListFilter
+
+    permission_classes_mapping = {
+        'list': (AllowAny,),
+        'selects': (AllowAny,),
+    }
 
     serializer_action_classes = {
         'list': serializers.NewsListSerializer,
@@ -67,34 +73,47 @@ class NewsViewSet(ModelViewSet):
         """
         from config.settings.base import STATIC_DIR
 
-        data = json.load(open(os.path.join(STATIC_DIR, 'tmp', 'news.json'), 'r'))
+        # data = json.load(open(os.path.join(STATIC_DIR, 'tmp', 'news.json'), 'r'))
+        # data = [json.loads(i[1]) for i in redis.hscan_iter('news')]
+        data = redis.hgetall('news')
         # print(data)
-        for news_data in data:
-            news_data['id'] = news_data.pop('md5')
+        for md5, raw_data in data.items():
+            news_data = json.loads(raw_data)
+            news_data['id'] = md5
+            source_name = news_data['source_name']
             tag = news_data.pop('tag')
 
-            if news_data.get('source_id'):
-                news_data['source'] = news_data.pop('source_id')
+            # if news_data.get('source_id'):
+            #     news_data['source'] = news_data.pop('source_id')
 
-            news_data['published_parsed'] = parse(news_data['published_parsed'])
-            news_data['updated_parsed'] = parse(news_data['updated_parsed'])
+            # news_data['published_parsed'] = parse(news_data['published_parsed'])
+            # news_data['updated_parsed'] = parse(news_data['updated_parsed'])
 
-            s = serializers.NewsCreateSerializer(data=news_data)
-            if not s.is_valid():
+            if self.queryset.filter(id=md5):
+                # 數據已存在, 將md5加到smenber
+                redis.sadd('db', md5)
+                redis.hdel('news', md5)
                 continue
 
-            obj = s.save()
+            serializer = serializers.NewsCreateSerializer(data=news_data)
+            if serializer.is_valid():
+                obj = serializer.save()
 
-            for i in tag:
-                t, created = models.Tag.objects.get_or_create(name=i)
-                obj.tag.add(t)
+                tag_id_list = [models.Tag.objects.get_or_create(name=i)[0].id for i in tag]
+                obj.tag.set(models.Tag.objects.filter(id__in=tag_id_list))
+            else:
+                logger.error(f'news保存報錯-{source_name}, {serializer.errors} {news_data}')
 
-            # self.redis.hdel('push', key)
+            redis.hdel('news', md5)
         return Response('ok')
 
     @action(detail=False)
     def cache(self, request, *args, **kwargs):
-        return super().cache(request, *args, **kwargs)
+
+        result = redis.hscan_iter('news')
+        result = [json.loads(i[1]) for i in result]
+
+        return Response({'code': 200, 'message': '當前cache', 'result': result})
 
     @cache.mapping.post
     def cache_post(self, request, *args, **kwargs):
@@ -107,15 +126,17 @@ class NewsViewSet(ModelViewSet):
         """
 
         from src.utils.rss import News, Source
-        from config.settings.base import STATIC_DIR
+        # from config.settings.base import STATIC_DIR
 
         name = self.request.data.get('name')
+        debug = self.request.data.get('debug',False)
         if name:
-            sourece_objs = models.Source.objects.filter(name=name)
+            sourece_objs = models.Source.objects.filter(name=name,enable=True)
         else:
-            sourece_objs = models.Source.objects.all()
+            sourece_objs = models.Source.objects.filter(enable=True)
 
-        data_list = []
+        # data_list = []
+        logger.info(f'sourece_objs {sourece_objs}')
 
         for source_obj in sourece_objs:
             source = Source(
@@ -126,25 +147,29 @@ class NewsViewSet(ModelViewSet):
                 category=source_obj.category_id,
                 remarks=source_obj.remarks,
                 timezone=source_obj.timezone,
-                status=source_obj.status
+                status=True
             )
             if not source_obj.thumbnail:
                 source_obj.thumbnail = source.source_thumbnail
                 source_obj.save()
 
             new = News(source)
-            new.run()
-            data_list.extend(new.result)
+            new.run(debug=debug)
+            # new.run()
+            # data_list.extend(new.result)
 
-        json.dump(
-            data_list,
-            open(os.path.join(STATIC_DIR, 'tmp', 'news.json'), 'w'),
-            indent=4,
-            sort_keys=True,
-            default=str
-        )
+        # redis.hgetall('news')
+        # json.dump(
+        #     data_list,
+        #     open(os.path.join(STATIC_DIR, 'tmp', 'news.json'), 'w'),
+        #     indent=4,
+        #     sort_keys=True,
+        #     default=str
+        # )
+        result = redis.hscan_iter('news')
+        result = [json.loads(i[1]) for i in result]
 
-        return Response({'code': 200, 'message': '刷新成功'})
+        return Response({'code': 200, 'message': '刷新成功', 'result': result})
 
     def _dict_to_msg_text(self, data):
         txt = [
@@ -184,22 +209,19 @@ class NewsViewSet(ModelViewSet):
         # 有綁定的使用者
         activate_user = models.Telegram.objects.filter(status=True)
 
-        logger.info(activate_user)
+        logger.info(f'activate_user {activate_user}')
 
         news_objs = models.News.objects.filter(push_status=False)
 
         for news in news_objs:
 
-            logger.info(news)
+            logger.info(f'news {news}')
 
             # Source 訂閱者
             sub_user = news.source.userprofile.all()
-            logger.info(sub_user)
 
             # 有TG綁定的訂閱者
             tg_sub_user = sub_user.filter(telegram__in=activate_user)
-
-            logger.info(sub_user)
 
             news_data = {
                 'name': news.name,
@@ -226,9 +248,9 @@ class NewsViewSet(ModelViewSet):
                 )
 
             # 訂閱者電子郵件
-            logger.info(sub_user)
+            logger.info(f'sub_user {sub_user}')
             toaddrs = list(filter(None, [user.email for user in sub_user]))
-            logger.info(toaddrs)
+            logger.info(f'toaddrs {toaddrs}')
 
             # if toaddrs:
             #     smtp = smtphelper(host=email_admin.host, port=email_admin.port, user=email_admin.user, pwd=email_admin.passwd)

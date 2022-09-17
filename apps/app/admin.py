@@ -19,9 +19,9 @@ admin.site.register(models.Reply)
 @admin.register(models.Source)
 class SourceAdmin(admin.ModelAdmin):
     list_display = [
-        'id', 'name', 'url', 'timezone', 'category', 'status', 'remarks', 'thumbnail', 'update_time', 'create_time'
+        'id', 'name', 'url', 'timezone', 'category', 'enable', 'remarks', 'thumbnail', 'update_time', 'create_time'
     ]
-    list_filter = ['category', 'status']
+    list_filter = ['category', 'enable']
     search_fields = ['name']
 
 

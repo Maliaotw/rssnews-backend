@@ -100,11 +100,39 @@ class UserprofileSerializer(serializers.ModelSerializer):
 
 
 class SourceListSerializer(serializers.ModelSerializer):
+    category = serializers.CharField(source='category.name')
+    enable = serializers.CharField(source='get_enable_display')
+    update_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
+    create_time = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S")
+    is_subscription = serializers.SerializerMethodField()
+
+    def get_is_subscription(self, obj):
+        # self.context['request'].user
+        _request = self.context['request']
+        _userprofile = _request.user
+        if not _userprofile:
+            return '否'
+
+        if obj.userprofile.filter(id=_userprofile.id):
+            return '是'
+        else:
+            return '否'
 
     class Meta:
         model = models.Source
         fields = "__all__"
 
+class SourceCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.Source
+        fields = "__all__"
+
+class SourceDetailSerializer(serializers.ModelSerializer):
+    enable = serializers.IntegerField()
+
+    class Meta:
+        model = models.Source
+        fields = "__all__"
 
 class SourceSelectsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -133,10 +161,7 @@ class CategoryListSerializer(serializers.ModelSerializer):
         fields = ["id", "label", "children"]
 
 
-class SourceCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.Source
-        fields = "__all__"
+
 
 
 class AccessKeySerializer(serializers.ModelSerializer):
