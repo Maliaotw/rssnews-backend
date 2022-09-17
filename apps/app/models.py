@@ -108,7 +108,7 @@ class News(AbstractBaseModel):
     name = models.CharField(max_length=255)
     url = models.URLField()
     content = models.TextField()
-    published_parsed = models.DateTimeField()
+    published_parsed = models.DateTimeField(db_index=True)
     updated_parsed = models.DateTimeField()
     tag = models.ManyToManyField("Tag", blank=True, verbose_name="標籤")
     reply_count = models.IntegerField(default=0)
@@ -118,7 +118,11 @@ class News(AbstractBaseModel):
     push_status = models.BooleanField(default=False, verbose_name='發布狀態')
 
     class Meta:
+        indexes = [
+            models.Index(fields=['published_parsed'])
+        ]
         ordering = ['-published_parsed']
+
 
     def __str__(self):
         return self.name
