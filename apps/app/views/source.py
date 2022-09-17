@@ -45,8 +45,14 @@ class SourceViewSet(ModelViewSet):
     def selects(self, request: Request, *args, **kwargs):
         data = {
             'category': list(models.Category.objects.filter(is_deleted=False).values('id', 'name')),
-            'enable': [{'id': 0, 'name': '否'}, {'id': 1, 'name': '是'}]
+            'enable': [{'id': 0, 'name': '否'}, {'id': 1, 'name': '是'}],
+            'subscription': [{'id': 0, 'name': '否'}, {'id': 1, 'name': '是'}],
+            'bacth_edit': [{'id': 'enable', 'name': '訂閱'}]
         }
+
+        # if 管理員  批量編輯選項
+        data['bacth_edit'].append({'id':'subscription','name':'訂閱'})
+
         return Response(data)
 
     @action(methods=['get'], detail=False)
@@ -81,7 +87,7 @@ class SourceViewSet(ModelViewSet):
 
     @action(methods=['post'], detail=False)
     def check_source(self, request, *args, **kwargs):
-        """確認來源是否可用, 返回最新一筆文章
+        """確認來源是否可用, 返回最新5筆文章
 
         :param request:
         :param args:
@@ -96,24 +102,86 @@ class SourceViewSet(ModelViewSet):
         if not feed.feed:
             return Response({'code': 100, 'message': ''})
 
+        _result = []
         # logger.info(feed.entries)
-        _result = feed.entries[0]
-        result = {
-            'title': _result['title'],
-            'source': feed.feed.title,
-            'summary': _result['summary'],
-            'published_datetime': _result['published_datetime'],
-            'updated_datetime': _result['updated_datetime'],
-        }
+        for i in feed.entries:
+            _result.append(f"{i['published_datetime']} {i['title']}")
+        # _result = feed.entries[0]
+        # result = {
+        #     'title': _result['title'],
+        #     'source': feed.feed.title,
+        #     'summary': _result['summary'],
+        #     'published_datetime': _result['published_datetime'],
+        #     'updated_datetime': _result['updated_datetime'],
+        # }
 
-        return Response({'code': 200, 'message': '刷新成功', 'result': result})
+        return Response({'code': 200, 'message': '測試成功', 'result': _result})
 
     @action(methods=['post'], detail=False)
     def batch_enable(self,  request, *args, **kwargs):
-        """批量啟用"""
-        pass
+        """批量啟用
+
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+
+        ids = request.data.get('ids')
+        if not ids:
+            return Response({'code': 100, 'message': '參數不對, ids未輸入'})
+
+        objs = self.model_class.objects.filter(id__in=ids,is_deleted=False)
+        objs.update(enable=1)
+        return Response({'code': 200, 'message': '批量修改成功', 'result': {}})
+
 
     @action(methods=['post'], detail=False)
     def batch_deleted(self,  request, *args, **kwargs):
         """批量刪除"""
-        pass
+        ids = request.data.get('ids')
+        if not ids:
+            return Response({'code': 100, 'message': '參數不對, ids未輸入'})
+
+        objs = self.model_class.objects.filter(id__in=ids,is_deleted=False)
+        objs.update(is_deleted=True)
+        return Response({'code': 200, 'message': '批量刪除成功', 'result': {}})
+
+    @action(methods=['post'], detail=False)
+    def batch_edit(self,  request, *args, **kwargs):
+        """批量修改狀態, 啟用|訂閱
+
+        :param request:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        ids = request.data.get('ids')
+        field = request.data.get('field')
+        to = request.data.get('to')
+
+        if not ids:
+            return Response({'code': 100, 'message': '參數不對, ids未輸入'})
+
+        if not field:
+            return Response({'code': 100, 'message': '參數不對, field未輸入'})
+
+        if to is None:
+            return Response({'code': 100, 'message': '參數不對, to未輸入'})
+
+        objs = self.model_class.objects.filter(id__in=ids, is_deleted=False)
+
+        if field == 'subscription':
+            if to == 0:
+                for i in objs:
+                    self.request.user.sourse.remove(i)
+            elif to == 1:
+                for i in objs:
+                    self.request.user.sourse.add(i)
+
+        else:
+            objs.update(**{f'{field}': to})
+        return Response({'code': 200, 'message': '批量修改成功', 'result': {}})
+
+
+
