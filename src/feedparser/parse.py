@@ -19,6 +19,10 @@ def parse(url: str) -> feedparser.FeedParserDict:
             # post.published_parsed = time.strftime("%Y/%m/%d %H:%M:%S", post.published_parsed)
             published_datetime = datetime(*post.published_parsed[:6]) + timedelta(hours=8)
             # post['published_datetime'] = published_datetime.strftime("%Y/%m/%d %H:%M:%S")
+
+            # 如果發布時間大於當前時間, 不做任何處理
+            if published_datetime > datetime.now():
+                published_datetime = datetime(*post.published_parsed[:6])
         else:
             published_datetime = parser.parse(post.published)
 

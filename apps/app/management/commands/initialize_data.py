@@ -12,6 +12,7 @@ def create_category():
         {'name': '表特', 'defaults': {'content': '', 'code': 'beauty'}},
         {'name': '博客', 'defaults': {'content': '', 'code': 'blog'}},
         {'name': '電影', 'defaults': {'content': '', 'code': 'movie'}},
+        {'name': '編程', 'defaults': {'content': '', 'code': 'program'}},
 
     ]
     for i in data:

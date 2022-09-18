@@ -51,7 +51,7 @@ class SourceViewSet(ModelViewSet):
         }
 
         # if 管理員  批量編輯選項
-        data['bacth_edit'].append({'id':'subscription','name':'訂閱'})
+        data['bacth_edit'].append({'id': 'subscription', 'name': '訂閱'})
 
         return Response(data)
 
@@ -118,7 +118,7 @@ class SourceViewSet(ModelViewSet):
         return Response({'code': 200, 'message': '測試成功', 'result': _result})
 
     @action(methods=['post'], detail=False)
-    def batch_enable(self,  request, *args, **kwargs):
+    def batch_enable(self, request, *args, **kwargs):
         """批量啟用
 
         :param request:
@@ -131,24 +131,23 @@ class SourceViewSet(ModelViewSet):
         if not ids:
             return Response({'code': 100, 'message': '參數不對, ids未輸入'})
 
-        objs = self.model_class.objects.filter(id__in=ids,is_deleted=False)
+        objs = self.model_class.objects.filter(id__in=ids, is_deleted=False)
         objs.update(enable=1)
         return Response({'code': 200, 'message': '批量修改成功', 'result': {}})
 
-
     @action(methods=['post'], detail=False)
-    def batch_deleted(self,  request, *args, **kwargs):
+    def batch_deleted(self, request, *args, **kwargs):
         """批量刪除"""
         ids = request.data.get('ids')
         if not ids:
             return Response({'code': 100, 'message': '參數不對, ids未輸入'})
 
-        objs = self.model_class.objects.filter(id__in=ids,is_deleted=False)
+        objs = self.model_class.objects.filter(id__in=ids, is_deleted=False)
         objs.update(is_deleted=True)
         return Response({'code': 200, 'message': '批量刪除成功', 'result': {}})
 
     @action(methods=['post'], detail=False)
-    def batch_edit(self,  request, *args, **kwargs):
+    def batch_edit(self, request, *args, **kwargs):
         """批量修改狀態, 啟用|訂閱
 
         :param request:
@@ -182,6 +181,3 @@ class SourceViewSet(ModelViewSet):
         else:
             objs.update(**{f'{field}': to})
         return Response({'code': 200, 'message': '批量修改成功', 'result': {}})
-
-
-
