@@ -1,7 +1,7 @@
-
 from rest_framework.settings import api_settings
 
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.response import Response
 
 
 class GetPermissionClassMix:
@@ -58,3 +58,9 @@ class ModelViewSet(GetPermissionClassMix, GetSerializerClassMixin, ModelViewSet)
         if self.paginator is None:
             return None
         return self.paginator.paginate_queryset(queryset, self.request, view=self)
+
+    def success_info(self, message='', result=None):
+        return Response({'code': 200, 'message': message, 'result': result})
+
+    def warning_info(self, message='', result=None):
+        return Response({'code': 100, 'message': message, 'result': result})

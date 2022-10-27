@@ -37,7 +37,12 @@ class ObtainExpiringAuthToken(ObtainAuthToken):
                     user=user
                 )
 
-            data = {'token': token.key, 'username': user.username}
+            data = {
+                'token': token.key,
+                'username': user.username,
+                'is_super': user.username
+
+            }
             return Response(data)
 
         else:
