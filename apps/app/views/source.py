@@ -47,11 +47,12 @@ class SourceViewSet(ModelViewSet):
             'category': list(models.Category.objects.filter(is_deleted=False).values('id', 'name')),
             'enable': [{'id': 0, 'name': '否'}, {'id': 1, 'name': '是'}],
             'subscription': [{'id': 0, 'name': '否'}, {'id': 1, 'name': '是'}],
-            'bacth_edit': [{'id': 'enable', 'name': '訂閱'}]
+            'bacth_edit': [{'value': 'subscription', 'label': '訂閱'}]
         }
 
         # if 管理員  批量編輯選項
-        data['bacth_edit'].append({'id': 'subscription', 'name': '訂閱'})
+        if request.user.is_superuser:
+            data['bacth_edit'].append({'value': 'enable', 'label': '啟用'})
 
         return Response(data)
 
@@ -96,11 +97,11 @@ class SourceViewSet(ModelViewSet):
         """
         url = request.data.get('url')
         if not url:
-            return Response({'code': 100, 'message': 'url參數未輸入'})
+            return self.warning_info(message='url參數未輸入.')
 
         feed = parse(url)
         if not feed.feed:
-            return Response({'code': 100, 'message': ''})
+            return self.warning_info(message='該鏈接可能已失效, 找不到返回信息.')
 
         _result = []
         # logger.info(feed.entries)
@@ -114,8 +115,11 @@ class SourceViewSet(ModelViewSet):
         #     'published_datetime': _result['published_datetime'],
         #     'updated_datetime': _result['updated_datetime'],
         # }
+        if not _result:
+            return self.warning_info(message='該鏈接可能已失效, 找不到返回信息.')
+        else:
 
-        return Response({'code': 200, 'message': '測試成功', 'result': _result})
+            return self.success_info(message='測試成功', result=_result[:10])
 
     @action(methods=['post'], detail=False)
     def batch_enable(self, request, *args, **kwargs):
@@ -138,6 +142,10 @@ class SourceViewSet(ModelViewSet):
     @action(methods=['post'], detail=False)
     def batch_deleted(self, request, *args, **kwargs):
         """批量刪除"""
+
+        if not request.user.is_superuser:
+            return Response({'code': 400, 'message': '無操作權限'})
+
         ids = request.data.get('ids')
         if not ids:
             return Response({'code': 100, 'message': '參數不對, ids未輸入'})
@@ -168,6 +176,10 @@ class SourceViewSet(ModelViewSet):
         if to is None:
             return Response({'code': 100, 'message': '參數不對, to未輸入'})
 
+        if not request.user.is_superuser:
+            if field in ['enable']:
+                return Response({'code': 400, 'message': '無操作權限'})
+
         objs = self.model_class.objects.filter(id__in=ids, is_deleted=False)
 
         if field == 'subscription':
@@ -180,4 +192,5 @@ class SourceViewSet(ModelViewSet):
 
         else:
             objs.update(**{f'{field}': to})
+
         return Response({'code': 200, 'message': '批量修改成功', 'result': {}})

@@ -30,7 +30,11 @@ class ObtainExpiringAuthToken(ObtainAuthToken):
                     user=user
                 )
 
-            data = {'token': token.key, 'username': user.username}
+            data = {
+                'token': token.key,
+                'username': user.username,
+                'is_superuser': user.is_superuser
+            }
             return Response(data)
 
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
