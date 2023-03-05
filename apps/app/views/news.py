@@ -213,6 +213,8 @@ class NewsViewSet(ModelViewSet):
 
         news_objs = models.News.objects.filter(push_status=False)
 
+        logger.info(f'news_objs {news_objs}')
+
         for news in news_objs:
 
             logger.info(f'news {news}')
