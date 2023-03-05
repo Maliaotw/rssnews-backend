@@ -119,7 +119,8 @@ class News(AbstractBaseModel):
 
     class Meta:
         indexes = [
-            models.Index(fields=['published_parsed'])
+            models.Index(fields=['published_parsed']),
+            models.Index(fields=['push_status']),
         ]
         ordering = ['-published_parsed']
 
