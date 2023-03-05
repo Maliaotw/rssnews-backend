@@ -5,6 +5,8 @@ from rest_framework import serializers
 from authentication.models import AccessKey
 from django.contrib.auth import get_user_model
 
+from src.base.serializers import CustomDateTimeField
+
 User = get_user_model()
 
 from . import models
@@ -20,8 +22,8 @@ class TagListSerializer(serializers.ModelSerializer):
 
 class NewsCreateSerializer(serializers.ModelSerializer):
     publish = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", input_formats=['%Y/%m/%d %H:%M:%S'], read_only=True)
-    published_parsed = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", input_formats=['%Y/%m/%d %H:%M:%S'])
-    updated_parsed = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", input_formats=['%Y/%m/%d %H:%M:%S'])
+    published_parsed = CustomDateTimeField(format="%Y-%m-%d %H:%M:%S", input_formats=['%Y/%m/%d %H:%M:%S'])
+    updated_parsed = CustomDateTimeField(format="%Y-%m-%d %H:%M:%S", input_formats=['%Y/%m/%d %H:%M:%S'])
 
     class Meta:
         model = models.News
@@ -122,10 +124,12 @@ class SourceListSerializer(serializers.ModelSerializer):
         model = models.Source
         fields = "__all__"
 
+
 class SourceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Source
         fields = "__all__"
+
 
 class SourceDetailSerializer(serializers.ModelSerializer):
     enable = serializers.IntegerField()
@@ -133,6 +137,7 @@ class SourceDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Source
         fields = "__all__"
+
 
 class SourceSelectsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -159,9 +164,6 @@ class CategoryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Category
         fields = ["id", "label", "children"]
-
-
-
 
 
 class AccessKeySerializer(serializers.ModelSerializer):
